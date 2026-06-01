@@ -19,8 +19,8 @@ function DocumentManager() {
     if (!files.length) return;
     
     const totalSize = files.reduce((acc, file) => acc + file.size, 0);
-    if (totalSize > 4.2 * 1024 * 1024) { // 4.2MB safe limit for Vercel
-      setMsg("Error: Total file size exceeds the 4.5MB Vercel serverless limit. Please upload smaller documents.");
+    if (totalSize > 2 * 1024 * 1024) { // 2MB safe limit for Vercel
+      setMsg("Error: File too large. Vercel's Hobby tier kills tasks that take longer than 60s or use too much RAM. Please upload files under 2MB.");
       return;
     }
 
