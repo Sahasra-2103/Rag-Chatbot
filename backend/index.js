@@ -21,11 +21,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const upload = multer({ dest: 'uploads/' });
-
-if (!fs.existsSync('uploads')) {
-  fs.mkdirSync('uploads');
-}
+const upload = multer({ storage: multer.memoryStorage() });
 
 // Initialize Pinecone
 const pc = new Pinecone({
@@ -71,15 +67,18 @@ const embeddings = {
   }
 };
 
-// Utility to parse different file types
-async function parseFile(filePath, mimeType) {
-  const ext = path.extname(filePath).toLowerCase();
+// Utility to parse different file types from buffer
+import { Readable } from 'stream';
+
+async function parseFile(file) {
+  const ext = path.extname(file.originalname).toLowerCase();
+  const mimeType = file.mimetype;
+  const buffer = file.buffer;
   
   if (ext === '.json' || mimeType === 'application/json') {
-    const raw = fs.readFileSync(filePath, 'utf-8');
+    const raw = buffer.toString('utf-8');
     try {
       const data = JSON.parse(raw);
-      // Assuming array of objects or single object
       if (Array.isArray(data)) {
          return data.map(d => JSON.stringify(d)).join('\n\n');
       }
@@ -90,20 +89,19 @@ async function parseFile(filePath, mimeType) {
   } 
   
   if (ext === '.pdf' || mimeType === 'application/pdf') {
-    const buffer = fs.readFileSync(filePath);
     const data = await pdfParse(buffer);
     return data.text;
   }
   
   if (ext === '.docx' || mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-    const result = await mammoth.extractRawText({ path: filePath });
+    const result = await mammoth.extractRawText({ buffer: buffer });
     return result.value;
   }
   
   if (ext === '.csv' || mimeType === 'text/csv') {
     return new Promise((resolve, reject) => {
       const results = [];
-      fs.createReadStream(filePath)
+      Readable.from(buffer)
         .pipe(csv())
         .on('data', (data) => results.push(JSON.stringify(data)))
         .on('end', () => resolve(results.join('\n\n')))
@@ -112,7 +110,7 @@ async function parseFile(filePath, mimeType) {
   }
   
   if (ext === '.txt' || mimeType === 'text/plain') {
-    return fs.readFileSync(filePath, 'utf-8');
+    return buffer.toString('utf-8');
   }
   
   throw new Error("Unsupported file type");
@@ -145,7 +143,7 @@ app.post('/api/upload', upload.array('files'), async (req, res) => {
     let totalChunks = 0;
     
     for (const file of files) {
-      const rawText = await parseFile(file.path, file.mimetype);
+      const rawText = await parseFile(file);
       const chunks = await splitter.splitText(rawText);
       
       // Generate tags ONCE per document to prevent massive LLM latency
@@ -176,7 +174,6 @@ app.post('/api/upload', upload.array('files'), async (req, res) => {
         await pineconeIndex.upsert({ records: batch });
       }
       totalChunks += chunks.length;
-      fs.unlinkSync(file.path);
     }
     
     res.json({ success: true, message: `Successfully indexed ${files.length} documents into ${totalChunks} chunks.` });
