@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import axios from 'axios';
 import { MessageSquare, Database, Upload, Send, Bot, User, CheckCircle2, AlertTriangle, FileText, File as FileIcon } from 'lucide-react';
 import './index.css';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 function DocumentManager() {
   const [files, setFiles] = useState([]);
@@ -17,6 +17,13 @@ function DocumentManager() {
 
   const handleUpload = async () => {
     if (!files.length) return;
+    
+    const totalSize = files.reduce((acc, file) => acc + file.size, 0);
+    if (totalSize > 4.2 * 1024 * 1024) { // 4.2MB safe limit for Vercel
+      setMsg("Error: Total file size exceeds the 4.5MB Vercel serverless limit. Please upload smaller documents.");
+      return;
+    }
+
     setUploading(true);
     setMsg("");
     const formData = new FormData();
@@ -98,7 +105,7 @@ function ChatInterface() {
         sources: res.data.sources,
         context: res.data.context
       }]);
-    } catch (error) {
+    } catch {
       setMessages(prev => [...prev, { role: 'bot', text: "Error connecting to backend." }]);
     } finally {
       setIsTyping(false);
