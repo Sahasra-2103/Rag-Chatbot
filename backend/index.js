@@ -11,11 +11,15 @@ import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
 import path from 'path';
 import { createRequire } from 'module';
+import { fileURLToPath } from 'url';
 const require = createRequire(import.meta.url);
 const pdfParse = require('pdf-parse');
 const mammoth = require('mammoth');
 const csv = require('csv-parser');
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(cors());
@@ -28,7 +32,7 @@ const pc = new Pinecone({
   apiKey: process.env.PINECONE_API_KEY || 'fake-key'
 });
 const indexName = process.env.PINECONE_INDEX || 'quickstart';
-const localKnowledgePath = path.join(process.cwd(), 'data', 'knowledge_base.json');
+const localKnowledgePath = path.join(__dirname, 'data', 'knowledge_base.json');
 let localKnowledgeBase = [];
 
 try {
@@ -40,22 +44,32 @@ try {
   console.warn('Local knowledge base could not be loaded:', error.message);
 }
 
-// Initialize LLM (Handle both Grok and Groq based on key prefix to be safe)
-let llm;
 const apiKey = process.env.XAI_API_KEY || process.env.GROQ_API_KEY || '';
-if (apiKey.startsWith('gsk_')) {
-  llm = new ChatGroq({
-    apiKey: apiKey,
-    model: 'llama-3.3-70b-versatile',
-    modelName: 'llama-3.3-70b-versatile',
-    temperature: 0
-  });
-} else {
-  llm = new ChatXAI({
-    apiKey: apiKey,
-    model: 'grok-2-latest',
-    temperature: 0
-  });
+let llm;
+
+function getLlm() {
+  if (!apiKey) {
+    throw new Error('Missing XAI_API_KEY or GROQ_API_KEY.');
+  }
+
+  if (llm) return llm;
+
+  if (apiKey.startsWith('gsk_')) {
+    llm = new ChatGroq({
+      apiKey,
+      model: 'llama-3.3-70b-versatile',
+      modelName: 'llama-3.3-70b-versatile',
+      temperature: 0
+    });
+  } else {
+    llm = new ChatXAI({
+      apiKey,
+      model: 'grok-2-latest',
+      temperature: 0
+    });
+  }
+
+  return llm;
 }
 
 // Embeddings via Pinecone Inference (Serverless) using v7 signature
@@ -263,7 +277,11 @@ app.post('/api/upload', upload.array('files'), async (req, res) => {
       return chunks.length;
     };
 
-    const chunkCounts = await Promise.all(files.map(processFile));
+    const chunkCounts = await Promise.race([
+      Promise.all(files.map(processFile)),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("Processing timed out (took longer than 45 seconds). The file might be too complex or Pinecone is rate-limiting.")), 45000))
+    ]);
+
     const totalChunks = chunkCounts.reduce((sum, count) => sum + count, 0);
     
     res.json({ success: true, message: `Successfully indexed ${files.length} documents into ${totalChunks} chunks.` });
@@ -349,7 +367,7 @@ ${contextText}
 
 User Question: ${query}`;
     
-    const llmRes = await llm.invoke(prompt);
+    const llmRes = await getLlm().invoke(prompt);
     let finalAnswer = llmRes.content.trim();
     
     // Safety check - If the LLM realized it didn't have the answer and outputted the fallback phrase (or similar)
@@ -373,5 +391,13 @@ User Question: ${query}`;
   }
 });
 
+app.get('/api/health', (req, res) => {
+  res.json({ ok: true, documents: localKnowledgeBase.length });
+});
+
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Backend running on port ${PORT}`));
+if (process.env.VERCEL !== '1') {
+  app.listen(PORT, () => console.log(`Backend running on port ${PORT}`));
+}
+
+export default app;
