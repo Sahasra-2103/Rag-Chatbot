@@ -19,14 +19,16 @@
       "dest": "/backend/index.js"
     },
     {
-      "handle": "filesystem"
+      "src": "/assets/(.*)",
+      "dest": "/frontend/assets/$1"
     },
     {
-      "src": "/.*",
+      "src": "/(.*\\.[a-zA-Z0-9]+)$",
+      "dest": "/frontend/$1"
+    },
+    {
+      "src": "/(.*)",
       "dest": "/frontend/index.html"
     }
-  ],
-  "env": {
-    "VITE_API_URL": "/api"
-  }
+  ]
 }
