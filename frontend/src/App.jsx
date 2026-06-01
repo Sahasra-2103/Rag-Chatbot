@@ -1,64 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import axios from 'axios';
-import { LayoutDashboard, MessageSquare, Database, Activity, Upload, Send, Bot, User, CheckCircle2, AlertTriangle, FileText, File as FileIcon } from 'lucide-react';
+import { MessageSquare, Database, Upload, Send, Bot, User, CheckCircle2, AlertTriangle, FileText, File as FileIcon } from 'lucide-react';
 import './index.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-
-function Dashboard() {
-  const [stats, setStats] = useState(null);
-
-  useEffect(() => {
-    axios.get(`${API_URL}/stats`).then(res => setStats(res.data)).catch(console.error);
-  }, []);
-
-  return (
-    <div className="glass" style={{ padding: '32px' }}>
-      <div className="view-header">
-        <h1>Domain-Agnostic Dashboard</h1>
-        <p>Monitor your unified knowledge base and retrieval metrics.</p>
-      </div>
-      
-      {stats ? (
-        <div className="dashboard-grid">
-          <div className="glass stat-card">
-            <span className="stat-title">Total Documents</span>
-            <span className="stat-value">{stats.documents}</span>
-            <span className="stat-desc">Multi-format supported</span>
-          </div>
-          <div className="glass stat-card">
-            <span className="stat-title">Total Chunks</span>
-            <span className="stat-value">{stats.chunks}</span>
-            <span className="stat-desc">Vectorized passages</span>
-          </div>
-          <div className="glass stat-card">
-            <span className="stat-title">Generated Tags</span>
-            <span className="stat-value">{stats.tagsGenerated}</span>
-            <span className="stat-desc">Semantic concepts extracted</span>
-          </div>
-          <div className="glass stat-card">
-            <span className="stat-title">Mean Reciprocal Rank</span>
-            <span className="stat-value">{stats.mrr}</span>
-            <span className="stat-desc">Retrieval Quality</span>
-          </div>
-          <div className="glass stat-card">
-            <span className="stat-title">Retrieval Accuracy</span>
-            <span className="stat-value">{stats.retrievalAccuracy}</span>
-            <span className="stat-desc">Hybrid Search</span>
-          </div>
-          <div className="glass stat-card">
-            <span className="stat-title">Hallucination Rate</span>
-            <span className="stat-value">{stats.hallucinationRate}</span>
-            <span className="stat-desc">Strictly grounded</span>
-          </div>
-        </div>
-      ) : (
-        <p>Loading stats...</p>
-      )}
-    </div>
-  );
-}
 
 function DocumentManager() {
   const [files, setFiles] = useState([]);
@@ -211,7 +157,7 @@ function ChatInterface() {
                 {msg.role === 'bot' && notFound && (
                    <div className="chat-meta">
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--danger)' }}>
-                        <AlertTriangle size={14} /> Retrieval confidence too low or context missing. Generation aborted to prevent hallucination.
+                        <AlertTriangle size={14} /> {msg.context?.length ? 'The retrieved context did not contain the exact requested detail.' : 'Retrieval confidence too low or context missing. Generation aborted to prevent hallucination.'}
                       </div>
                    </div>
                 )}
@@ -249,7 +195,6 @@ function Sidebar() {
   const location = useLocation();
   
   const navItems = [
-    { path: '/', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
     { path: '/chat', label: 'Chat Interface', icon: <MessageSquare size={20} /> },
     { path: '/documents', label: 'Knowledge Base', icon: <Database size={20} /> }
   ];
@@ -289,7 +234,7 @@ export default function App() {
       
       <main className="main-content">
         <Routes>
-          <Route path="/" element={<Dashboard />} />
+          <Route path="/" element={<Navigate to="/chat" replace />} />
           <Route path="/chat" element={<ChatInterface />} />
           <Route path="/documents" element={<DocumentManager />} />
         </Routes>

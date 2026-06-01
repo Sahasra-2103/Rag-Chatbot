@@ -153,46 +153,6 @@ body {
   font-size: 16px;
 }
 
-/* Dashboard Grid */
-.dashboard-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 24px;
-  margin-bottom: 32px;
-}
-
-.stat-card {
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  transition: transform 0.3s ease;
-}
-
-.stat-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-}
-
-.stat-title {
-  color: var(--text-secondary);
-  font-size: 14px;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-.stat-value {
-  font-size: 36px;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.stat-desc {
-  font-size: 13px;
-  color: var(--success);
-}
-
 /* Upload Section */
 .upload-zone {
   border: 2px dashed var(--border-color);
