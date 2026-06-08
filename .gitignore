@@ -4,3 +4,6 @@ uploads/
 .DS_Store
 dist/
 build/
+backend/data/evaluation_results.json
+backend-start.err
+backend-start.log

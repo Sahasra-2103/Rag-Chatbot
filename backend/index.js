@@ -12,6 +12,7 @@ import fs from 'fs';
 import path from 'path';
 import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
+import { EvaluationService, EvaluationStore } from './services/evaluation/evaluationService.js';
 const require = createRequire(import.meta.url);
 const pdfParse = require('pdf-parse');
 const mammoth = require('mammoth');
@@ -20,6 +21,8 @@ dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const evaluationStore = new EvaluationStore(path.join(__dirname, 'data', 'evaluation_results.json'));
+const evaluationService = new EvaluationService({ store: evaluationStore });
 
 const app = express();
 app.use(cors());
@@ -294,7 +297,8 @@ app.post('/api/upload', upload.array('files'), async (req, res) => {
 // Chat / Query
 app.post('/api/chat', async (req, res) => {
   try {
-    const { query } = req.body;
+    const startedAt = Date.now();
+    const { query, expected_answer = '' } = req.body;
     if (!query) return res.status(400).json({ error: "Query is required" });
     
     const queryTags = generateTags(query, 4);
@@ -343,11 +347,22 @@ app.post('/api/chat', async (req, res) => {
     // Retrieval Validation Layer / Hallucination Prevention
     // If the top hybrid score is less than the threshold (e.g. 0.3), reject immediately.
     if (highestScore < 0.3 || topMatches.length === 0) {
+       const answer = "Not Found in Knowledge Base";
+       const evaluation = await evaluationService.runAndSave({
+         query,
+         answer,
+         retrievedContexts: [],
+         groundTruth: expected_answer,
+         responseTime: Date.now() - startedAt,
+         retrievedChunkIds: []
+       });
+
        return res.json({ 
-         answer: "Not Found in Knowledge Base",
+         answer,
          context: [],
          confidence: 0,
-         sources: []
+         sources: [],
+         evaluation
        });
     }
     
@@ -378,15 +393,100 @@ User Question: ${query}`;
     // Only extract unique sources
     const uniqueSources = [...new Set(topMatches.map(m => m.metadata.source))];
     
+    const context = topMatches.map(m => ({
+      id: m.id,
+      text: m.metadata.text,
+      source: m.metadata.source,
+      score: Number(m.hybridScore || m.score || 0).toFixed(3),
+      tags: m.metadata.tags
+    }));
+
+    const evaluation = await evaluationService.runAndSave({
+      query,
+      answer: finalAnswer,
+      retrievedContexts: context,
+      groundTruth: expected_answer,
+      responseTime: Date.now() - startedAt,
+      retrievedChunkIds: topMatches.map((m) => m.id)
+    });
+
     res.json({
       answer: finalAnswer,
-      context: topMatches.map(m => ({ text: m.metadata.text, source: m.metadata.source, score: m.hybridScore.toFixed(3), tags: m.metadata.tags })),
+      context,
       confidence: Math.min(highestScore, 1).toFixed(2),
-      sources: uniqueSources
+      sources: uniqueSources,
+      evaluation
     });
     
   } catch (error) {
     console.error("Chat Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/evaluation/run', async (req, res) => {
+  try {
+    const { query, answer, retrieved_contexts = [], ground_truth = '', expected_answer = '', response_time = 0, retrieved_chunk_ids = [] } = req.body;
+    if (!query || !answer) return res.status(400).json({ error: 'query and answer are required' });
+
+    const evaluation = await evaluationService.runAndSave({
+      query,
+      answer,
+      retrievedContexts: retrieved_contexts,
+      groundTruth: ground_truth || expected_answer,
+      responseTime: response_time,
+      retrievedChunkIds: retrieved_chunk_ids
+    });
+
+    res.json(evaluation);
+  } catch (error) {
+    console.error('Evaluation Error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/evaluation/latest', async (req, res) => {
+  try {
+    res.json(await evaluationService.latest());
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/evaluation/history', async (req, res) => {
+  try {
+    res.json(await evaluationService.history(req.query));
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/evaluation/analytics', async (req, res) => {
+  try {
+    res.json(await evaluationService.analytics(req.query));
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/evaluation/export/csv', async (req, res) => {
+  try {
+    const csvData = await evaluationService.csv();
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="evaluation-results.csv"');
+    res.send(csvData);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/evaluation/export/pdf', async (req, res) => {
+  try {
+    const pdf = await evaluationService.pdfBuffer();
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename="ragas-evaluation-report.pdf"');
+    res.send(pdf);
+  } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });

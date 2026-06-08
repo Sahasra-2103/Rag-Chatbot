@@ -356,3 +356,357 @@ body {
 .data-table tr:hover {
   background: rgba(255, 255, 255, 0.02);
 }
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.score-green {
+  color: var(--success);
+}
+
+.score-yellow {
+  color: #f59e0b;
+}
+
+.score-red {
+  color: var(--danger);
+}
+
+.rating-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid currentColor;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.evaluation-panel {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.evaluation-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.panel-eyebrow {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0;
+  margin-bottom: 3px;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.metric-grid.compact {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.metric-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+
+.metric-row span {
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.metric-row strong {
+  white-space: nowrap;
+}
+
+.details-toggle {
+  margin-top: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: transparent;
+  color: var(--accent-color);
+  font-family: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.evaluation-details {
+  margin-top: 12px;
+  display: grid;
+  gap: 12px;
+}
+
+.evaluation-details section {
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.16);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+
+.evaluation-details h3 {
+  font-size: 13px;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+
+.evaluation-details p,
+.chunk-preview p {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.chunk-preview {
+  margin-bottom: 10px;
+}
+
+.chunk-preview p {
+  max-height: 90px;
+  overflow: auto;
+  margin-top: 6px;
+}
+
+.evaluation-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.dashboard-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.dashboard-header h1 {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+
+.dashboard-header p {
+  color: var(--text-secondary);
+}
+
+.dashboard-actions,
+.table-controls,
+.history-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.select-control,
+.history-search input {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-family: inherit;
+  outline: none;
+}
+
+.select-control:focus,
+.history-search input:focus {
+  border-color: var(--accent-color);
+}
+
+.status-banner {
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  color: var(--text-primary);
+}
+
+.status-banner.error {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.25);
+}
+
+.analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.analytics-card,
+.dashboard-panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+
+.analytics-card {
+  padding: 16px;
+  min-height: 100px;
+}
+
+.analytics-card span {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.35;
+  min-height: 36px;
+}
+
+.analytics-card strong {
+  display: block;
+  font-size: 28px;
+  margin-top: 10px;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.8fr) minmax(420px, 1.2fr);
+  gap: 20px;
+}
+
+.dashboard-panel {
+  padding: 20px;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.section-title h2 {
+  font-size: 18px;
+}
+
+.latest-query {
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.chart-box {
+  width: 100%;
+  min-height: 260px;
+}
+
+.table-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.query-cell {
+  max-width: 280px;
+  overflow-wrap: anywhere;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 16px;
+  color: var(--text-secondary);
+}
+
+.insight-list {
+  display: grid;
+  gap: 10px;
+}
+
+.insight-list p {
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 1180px) {
+  .analytics-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .app-layout {
+    flex-direction: column;
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .sidebar {
+    width: 100%;
+    flex-direction: row;
+    align-items: center;
+    overflow-x: auto;
+  }
+
+  .nav-links {
+    flex-direction: row;
+  }
+
+  .main-content {
+    padding: 16px;
+  }
+
+  .chat-wrapper {
+    height: calc(100vh - 150px);
+  }
+
+  .chat-message {
+    max-width: 100%;
+  }
+
+  .metric-grid,
+  .metric-grid.compact,
+  .analytics-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-header,
+  .table-toolbar {
+    flex-direction: column;
+  }
+}

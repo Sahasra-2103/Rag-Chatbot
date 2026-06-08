@@ -1,10 +1,361 @@
 import { useState, useEffect, useRef } from 'react';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import axios from 'axios';
-import { MessageSquare, Database, Upload, Send, Bot, User, CheckCircle2, AlertTriangle, FileText, File as FileIcon } from 'lucide-react';
+import { BarChart3, ChevronDown, ChevronUp, Database, Download, FileText, File as FileIcon, Gauge, MessageSquare, Search, Send, Bot, User, CheckCircle2, AlertTriangle, Upload } from 'lucide-react';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis
+} from 'recharts';
 import './index.css';
+import EvaluationDashboardPage from './pages/EvaluationDashboard';
+import EvaluationPanelComponent from './components/EvaluationPanel';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
+
+const metricLabels = {
+  faithfulness: 'Faithfulness',
+  answer_relevancy: 'Answer Relevancy',
+  answer_relevance: 'Answer Relevance',
+  context_precision: 'Context Precision',
+  context_recall: 'Context Recall',
+  retrieval_relevance: 'Retrieval Relevance',
+  accuracy: 'Accuracy',
+  answer_correctness: 'Answer Correctness',
+  conciseness: 'Conciseness',
+  hallucination_score: 'Hallucination Score',
+  retrieval_quality: 'Retrieval Quality',
+  response_completeness: 'Response Completeness',
+  overall_score: 'Overall RAG Score'
+};
+
+const percent = (value) => `${Math.round(Number(value || 0) * 100)}%`;
+
+function scoreClass(value) {
+  if (value >= 0.8) return 'score-green';
+  if (value >= 0.6) return 'score-yellow';
+  return 'score-red';
+}
+
+function downloadFile(url) {
+  window.open(url, '_blank', 'noopener,noreferrer');
+}
+
+function EvaluationPanel({ evaluation }) {
+  const [open, setOpen] = useState(false);
+  if (!evaluation) return null;
+
+  const coreMetrics = [
+    'context_precision',
+    'context_recall',
+    'retrieval_relevance',
+    'faithfulness',
+    'answer_relevance',
+    'answer_correctness',
+    'conciseness'
+  ];
+
+  return (
+    <div className="evaluation-panel">
+      <div className="evaluation-summary">
+        <div>
+          <span className="panel-eyebrow">Evaluation</span>
+          <strong className={scoreClass(evaluation.overall_score)}>{metricLabels.overall_score}: {percent(evaluation.overall_score)}</strong>
+        </div>
+        <span className={`rating-badge ${scoreClass(evaluation.overall_score)}`}>{evaluation.rating}</span>
+      </div>
+
+      <div className="metric-grid compact">
+        {coreMetrics.map((key) => (
+          <div key={key} className="metric-row">
+            <span>{metricLabels[key]}</span>
+            <strong className={scoreClass(evaluation[key])}>{percent(evaluation[key])}</strong>
+          </div>
+        ))}
+      </div>
+
+      <button className="details-toggle" type="button" onClick={() => setOpen(!open)}>
+        {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        View Details
+      </button>
+
+      {open && (
+        <div className="evaluation-details">
+          <section>
+            <h3>Retrieved Chunks Used</h3>
+            {(evaluation.details?.retrieved_chunks_used || []).map((chunk, idx) => (
+              <div key={`${chunk.id || idx}`} className="chunk-preview">
+                <strong>{chunk.source || 'Unknown source'} • {percent(chunk.score)}</strong>
+                <p>{chunk.text}</p>
+              </div>
+            ))}
+            {!evaluation.details?.retrieved_chunks_used?.length && <p>No retrieved chunks were available for this answer.</p>}
+          </section>
+          <section>
+            <h3>Missing Information</h3>
+            <p>{evaluation.details?.missing_information}</p>
+          </section>
+          <section>
+            <h3>Hallucination Warnings</h3>
+            {(evaluation.details?.hallucination_warnings || []).length ? (
+              evaluation.details.hallucination_warnings.map((warning, index) => <p key={`${warning}-${index}`}>{warning}</p>)
+            ) : (
+              <p>No hallucination warnings detected.</p>
+            )}
+          </section>
+          <section>
+            <h3>Evaluation Reasoning</h3>
+            {(evaluation.details?.evaluation_reasoning || []).map((reason) => <p key={reason}>{reason}</p>)}
+          </section>
+          <section>
+            <h3>Sources Referenced</h3>
+            <div>
+              {(evaluation.details?.sources_referenced || []).map((source) => (
+                <span key={source} className="source-badge"><FileIcon size={12} style={{ display: 'inline', marginRight: '4px' }} />{source}</span>
+              ))}
+            </div>
+          </section>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EvaluationDashboard() {
+  const [range, setRange] = useState('7d');
+  const [analytics, setAnalytics] = useState(null);
+  const [history, setHistory] = useState({ items: [], total: 0, page: 1, limit: 8 });
+  const [search, setSearch] = useState('');
+  const [sort, setSort] = useState('timestamp');
+  const [order, setOrder] = useState('desc');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const loadDashboard = async (page = 1) => {
+    setLoading(true);
+    setError('');
+    try {
+      const [analyticsRes, historyRes] = await Promise.all([
+        axios.get(`${API_URL}/evaluation/analytics`, { params: { range } }),
+        axios.get(`${API_URL}/evaluation/history`, { params: { range, search, sort, order, page, limit: history.limit } })
+      ]);
+      setAnalytics(analyticsRes.data);
+      setHistory(historyRes.data);
+    } catch (err) {
+      setError(err.response?.data?.error || err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDashboard(1);
+    const timer = setInterval(() => loadDashboard(1), 10000);
+    return () => clearInterval(timer);
+  }, [range, sort, order]);
+
+  const submitSearch = (e) => {
+    e.preventDefault();
+    loadDashboard(1);
+  };
+
+  const avg = analytics?.averages || {};
+  const cards = [
+    ['faithfulness', 'Average Faithfulness'],
+    ['answer_relevancy', 'Average Relevancy'],
+    ['context_precision', 'Average Precision'],
+    ['context_recall', 'Average Recall'],
+    ['accuracy', 'Average Accuracy'],
+    ['hallucination_score', 'Average Hallucination'],
+    ['overall_score', 'Average Overall']
+  ];
+
+  return (
+    <div className="evaluation-dashboard">
+      <div className="dashboard-header">
+        <div>
+          <h1>RAGAS Evaluation Analytics</h1>
+          <p>Automatic quality monitoring for every generated chatbot response.</p>
+        </div>
+        <div className="dashboard-actions">
+          <select className="select-control" value={range} onChange={(e) => setRange(e.target.value)}>
+            <option value="24h">Last 24 Hours</option>
+            <option value="7d">Last 7 Days</option>
+            <option value="30d">Last 30 Days</option>
+            <option value="all">All Time</option>
+          </select>
+          <button className="btn btn-secondary" onClick={() => downloadFile(`${API_URL}/evaluation/export/csv`)}>
+            <Download size={16} /> CSV
+          </button>
+          <button className="btn btn-secondary" onClick={() => downloadFile(`${API_URL}/evaluation/export/pdf`)}>
+            <Download size={16} /> PDF
+          </button>
+        </div>
+      </div>
+
+      {error && <div className="status-banner error">{error}</div>}
+      {loading && <div className="status-banner">Loading evaluation analytics...</div>}
+
+      <div className="analytics-grid">
+        {cards.map(([key, label]) => (
+          <div key={key} className="analytics-card">
+            <span>{label}</span>
+            <strong className={scoreClass(avg[key])}>{percent(avg[key])}</strong>
+          </div>
+        ))}
+      </div>
+
+      <div className="dashboard-grid">
+        <section className="dashboard-panel latest-panel">
+          <div className="section-title">
+            <Gauge size={18} />
+            <h2>Latest Evaluation</h2>
+          </div>
+          {analytics?.latest ? (
+            <>
+              <p className="latest-query">{analytics.latest.query}</p>
+              <div className="metric-grid">
+                {['overall_score', 'faithfulness', 'answer_relevancy', 'accuracy'].map((key) => (
+                  <div key={key} className="metric-row">
+                    <span>{metricLabels[key]}</span>
+                    <strong className={scoreClass(analytics.latest[key])}>{percent(analytics.latest[key])}</strong>
+                  </div>
+                ))}
+              </div>
+              <span className={`rating-badge ${scoreClass(analytics.latest.overall_score)}`}>{analytics.latest.rating}</span>
+            </>
+          ) : (
+            <p>No evaluations yet. Ask a chatbot question to create the first record.</p>
+          )}
+        </section>
+
+        <section className="dashboard-panel">
+          <div className="section-title">
+            <BarChart3 size={18} />
+            <h2>Latest Query Metrics</h2>
+          </div>
+          <div className="chart-box">
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={(analytics?.latest_metrics || []).map((item) => ({ ...item, value: Math.round(item.value * 100) }))}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                <XAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                <YAxis tick={{ fill: '#94a3b8', fontSize: 12 }} domain={[0, 100]} />
+                <Tooltip contentStyle={{ background: '#111827', border: '1px solid rgba(255,255,255,0.12)' }} />
+                <Bar dataKey="value" fill="#3b82f6" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
+      </div>
+
+      <section className="dashboard-panel">
+        <div className="section-title">
+          <BarChart3 size={18} />
+          <h2>Historical Trends</h2>
+        </div>
+        <div className="chart-box">
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={(analytics?.trends || []).map((item) => ({
+              ...item,
+              overall_score: Math.round(item.overall_score * 100),
+              faithfulness: Math.round(item.faithfulness * 100),
+              accuracy: Math.round(item.accuracy * 100),
+              context_recall: Math.round(item.context_recall * 100)
+            }))}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+              <XAxis dataKey="label" tick={{ fill: '#94a3b8', fontSize: 11 }} />
+              <YAxis tick={{ fill: '#94a3b8', fontSize: 12 }} domain={[0, 100]} />
+              <Tooltip contentStyle={{ background: '#111827', border: '1px solid rgba(255,255,255,0.12)' }} />
+              <Line type="monotone" dataKey="overall_score" stroke="#3b82f6" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="faithfulness" stroke="#10b981" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="accuracy" stroke="#f59e0b" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="context_recall" stroke="#ef4444" strokeWidth={2} dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </section>
+
+      <section className="dashboard-panel">
+        <div className="table-toolbar">
+          <div className="section-title">
+            <Search size={18} />
+            <h2>Query History</h2>
+          </div>
+          <form className="history-search" onSubmit={submitSearch}>
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search queries..." />
+            <button className="btn btn-secondary" type="submit">Search</button>
+          </form>
+        </div>
+        <div className="table-controls">
+          <select className="select-control" value={sort} onChange={(e) => setSort(e.target.value)}>
+            <option value="timestamp">Date</option>
+            <option value="overall_score">Overall Score</option>
+            <option value="faithfulness">Faithfulness</option>
+            <option value="answer_relevancy">Relevancy</option>
+            <option value="accuracy">Accuracy</option>
+          </select>
+          <select className="select-control" value={order} onChange={(e) => setOrder(e.target.value)}>
+            <option value="desc">Descending</option>
+            <option value="asc">Ascending</option>
+          </select>
+        </div>
+        <div className="table-scroll">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Query</th>
+                <th>Overall</th>
+                <th>Faithfulness</th>
+                <th>Relevancy</th>
+                <th>Precision</th>
+                <th>Recall</th>
+                <th>Accuracy</th>
+                <th>Hallucination</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {history.items.map((item) => (
+                <tr key={item.id}>
+                  <td className="query-cell">{item.query}</td>
+                  <td className={scoreClass(item.overall_score)}>{percent(item.overall_score)}</td>
+                  <td>{percent(item.faithfulness)}</td>
+                  <td>{percent(item.answer_relevancy)}</td>
+                  <td>{percent(item.context_precision)}</td>
+                  <td>{percent(item.context_recall)}</td>
+                  <td>{percent(item.accuracy)}</td>
+                  <td>{percent(item.hallucination_score)}</td>
+                  <td>{new Date(item.timestamp).toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="pagination">
+          <button className="btn btn-secondary" disabled={history.page <= 1} onClick={() => loadDashboard(history.page - 1)}>Previous</button>
+          <span>Page {history.page} of {Math.max(1, Math.ceil(history.total / history.limit))}</span>
+          <button className="btn btn-secondary" disabled={history.page >= Math.ceil(history.total / history.limit)} onClick={() => loadDashboard(history.page + 1)}>Next</button>
+        </div>
+      </section>
+
+      <section className="dashboard-panel">
+        <div className="section-title">
+          <CheckCircle2 size={18} />
+          <h2>Performance Insights</h2>
+        </div>
+        <div className="insight-list">
+          {(analytics?.insights || []).map((insight) => <p key={insight}>{insight}</p>)}
+        </div>
+      </section>
+    </div>
+  );
+}
 
 function DocumentManager() {
   const [files, setFiles] = useState([]);
@@ -103,7 +454,8 @@ function ChatInterface() {
         text: res.data.answer,
         confidence: res.data.confidence,
         sources: res.data.sources,
-        context: res.data.context
+        context: res.data.context,
+        evaluation: res.data.evaluation
       }]);
     } catch {
       setMessages(prev => [...prev, { role: 'bot', text: "Error connecting to backend." }]);
@@ -168,6 +520,8 @@ function ChatInterface() {
                       </div>
                    </div>
                 )}
+
+                {msg.role === 'bot' && <EvaluationPanel evaluation={msg.evaluation} />}
               </div>
             </div>
           );
@@ -203,7 +557,8 @@ function Sidebar() {
   
   const navItems = [
     { path: '/chat', label: 'Chat Interface', icon: <MessageSquare size={20} /> },
-    { path: '/documents', label: 'Knowledge Base', icon: <Database size={20} /> }
+    { path: '/documents', label: 'Knowledge Base', icon: <Database size={20} /> },
+    { path: '/evaluation', label: 'Evaluation', icon: <Gauge size={20} /> }
   ];
 
   return (
@@ -244,6 +599,7 @@ export default function App() {
           <Route path="/" element={<Navigate to="/chat" replace />} />
           <Route path="/chat" element={<ChatInterface />} />
           <Route path="/documents" element={<DocumentManager />} />
+          <Route path="/evaluation" element={<EvaluationDashboardPage />} />
         </Routes>
       </main>
     </div>
