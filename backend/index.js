@@ -21,12 +21,38 @@ dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const evaluationStore = new EvaluationStore(path.join(__dirname, 'data', 'evaluation_results.json'));
+const evaluationResultsPath = process.env.VERCEL === '1'
+  ? path.join('/tmp', 'evaluation_results.json')
+  : path.join(__dirname, 'data', 'evaluation_results.json');
+const evaluationStore = new EvaluationStore(evaluationResultsPath);
 const evaluationService = new EvaluationService({ store: evaluationStore });
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Middleware to reconstruct original path when routed via Vercel rewrite
+app.use((req, res, next) => {
+  if (req.path === '/backend/index.js') {
+    const subpath = req.query.path;
+    if (subpath) {
+      const originalPath = '/api/' + (subpath.startsWith('/') ? subpath.slice(1) : subpath);
+      const queryIdx = req.url.indexOf('?');
+      let queryString = '';
+      if (queryIdx !== -1) {
+        const rawQuery = req.url.slice(queryIdx + 1);
+        const params = new URLSearchParams(rawQuery);
+        params.delete('path');
+        const updatedQuery = params.toString();
+        if (updatedQuery) {
+          queryString = '?' + updatedQuery;
+        }
+      }
+      req.url = originalPath + queryString;
+    }
+  }
+  next();
+});
 
 const upload = multer({ storage: multer.memoryStorage() });
 
